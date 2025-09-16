@@ -7,12 +7,13 @@ import os
 from discord import app_commands
 import asyncio
 from dotenv import load_dotenv
-import os
-
+import time
+from discord import Member
+from discord import app_commands
 
 
 # Version of the bot
-BOT_VERSION = "V0.0.01"
+BOT_VERSION = "V0.0.02"
 
 
 intents = discord.Intents.default()
@@ -21,7 +22,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 ANNOUNCE_CHANNEL_ID = 1417338592359092235  # paste your channel ID here
 WORK_CHANNEL_ID = 1417332114453430282  # replace with your work channel ID
 ROULETTE_CHANNEL_ID = 1417369961172697090  # replace with your roulette channel ID
-
+PATCH_NOTES_CHANNEL_ID = 1417353769037070366  # replace with your channel ID
+META_FILE = "meta.json"
 
 ROLE_TIERS = [
     # Worker path
@@ -383,10 +385,51 @@ async def on_ready():
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
 
-    # Custom status (no "Playing/Watching" prefix)
+    # Set custom status
     activity = discord.CustomActivity(name=f"getting a j*b at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
+    # Load last announced version
+    last_version = None
+    if os.path.exists(META_FILE):
+        try:
+            with open(META_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                last_version = data.get("last_announced_version")
+        except Exception as e:
+            print(f"⚠️ Could not read {META_FILE}: {e}")
+
+    # Only announce if version changed
+    if BOT_VERSION != last_version:
+        try:
+            with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            latest = []
+            for line in lines:
+                if line.startswith("## "):
+                    if latest:  # stop once we finish the first section
+                        break
+                    latest.append(line.strip())
+                elif latest:
+                    latest.append(line.strip())
+            patch_text = "\n".join(latest)
+
+            channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
+            if channel:
+                embed = discord.Embed(
+                    title=f"📢 New Update: {BOT_VERSION}",
+                    description=patch_text,
+                    color=discord.Color.green()
+                )
+                await channel.send(embed=embed)
+
+            # Update meta.json so we don’t repost
+            with open(META_FILE, "w", encoding="utf-8") as f:
+                json.dump({"last_announced_version": BOT_VERSION}, f, indent=2)
+
+        except Exception as e:
+            print(f"⚠️ Could not send patch notes: {e}")
 
 
 @bot.tree.command(name="balance", description="Check how much money you have")
@@ -885,6 +928,70 @@ async def leaderboardjob(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name="resetbalances", description="Admin: reset ALL user balances to $0 (irreversible without backup)")
+@app_commands.describe(confirm="Type CONFIRM to perform the reset")
+async def resetbalances(interaction: discord.Interaction, confirm: str):
+    # admin check
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ You must be a server administrator to use this.", ephemeral=True)
+        return
+
+    if confirm != "CONFIRM":
+        await interaction.response.send_message(
+            "⚠️ This will reset everyone's balance to $0. To confirm, re-run the command with `confirm=CONFIRM`.",
+            ephemeral=True
+        )
+        return
+
+    # Backup current balances & job_counts
+    try:
+        ts = int(time.time())
+        backup_name = f"balances_backup_{ts}.json"
+        data_to_backup = {
+            "balances": balances,
+            "job_counts": job_counts
+        }
+        with open(backup_name, "w", encoding="utf-8") as bf:
+            json.dump(data_to_backup, bf, indent=2)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Failed to create backup: {e}", ephemeral=True)
+        return
+
+    # Reset balances in memory
+    for uid in list(balances.keys()):
+        balances[uid] = 0.0
+
+    # Save to disk (use your existing save function)
+    try:
+        save_balances()
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Failed to save balances: {e}", ephemeral=True)
+        return
+
+    # public-ish confirmation (ephemeral + channel note)
+    await interaction.response.send_message(
+        f"✅ All balances reset to $0. Backup saved as `{backup_name}`.",
+        ephemeral=True
+    )
+
+    # optional public announcement in the channel
+    await interaction.channel.send(f"⚠️ All balances were reset by {interaction.user.mention}. Backup: `{backup_name}`")
+
+@bot.tree.command(name="resetbalance", description="Admin: reset one user's balance to $0.00")
+@app_commands.describe(member="The user to reset")
+async def resetbalance(interaction: discord.Interaction, member: discord.Member):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ You must be an administrator to use this.", ephemeral=True)
+        return
+
+    uid = member.id
+    if uid not in balances:
+        await interaction.response.send_message(f"ℹ️ {member.display_name} has no balance recorded.", ephemeral=True)
+        return
+
+    balances[uid] = 0.0
+    save_balances()
+    await interaction.response.send_message(f"✅ Reset {member.mention}'s balance to $0.00.", ephemeral=False)
 
 
 @bot.tree.command(name="work", description="Do an odd job to earn some money")
