@@ -177,30 +177,67 @@ SPECIAL_CHANCE = 0.02  # 2% chance per /work to try a special job
 
 special_jobs = [
     {
-        "name": "dev",
-        "desc": "👀 DEV JOB — how did you get this? Are you cheating? What? Who are you?!?!",
-        "payout": (1_000_000, 1_000_000),  # flat $1,000,000
-        "color": discord.Color.red()
-    },
-    {
-        "name": "toilet",
-        "desc": "🚽 yikes… you cleaned toilets and got 💩 on yourself. loser.",
-        "payout": (0.25, 0.25),            # flat 25 cents
-        "color": discord.Color.from_rgb(105, 105, 105)  # dim gray
+        "name": "lightning",
+        "desc": "⚡ A flash sale struck! You flipped items like crazy.",
+        "color": discord.Color.yellow(),
+        "payout": (80_000, 200_000)
     },
     {
         "name": "glitch",
-        "desc": "⚡ ERR0R_J0B_N0T_F0UND_??? you glitched reality and hit a bug bounty.",
-        "payout": (10_000, 50_000),
-        "color": discord.Color.from_rgb(139, 0, 139)    # dark magenta
+        "desc": "🌀 The job glitched out! Reality bent in your favor.",
+        "color": discord.Color.magenta(),
+        "payout": (200_000, 300_000)
     },
     {
-        "name": "flash-sale",
-        "desc": "🛒 you got in on a meme stock, nice! sold that quickly huh? stonks.",
-        "payout": (2_500, 15_000),
-        "color": discord.Color.from_rgb(218, 165, 32)   # goldenrod
+        "name": "dev",
+        "desc": "👨‍💻 You stumbled into dev commands... jackpot.",
+        "color": discord.Color.dark_red(),
+        "payout": (1_500_000, 1_500_000)
+    },
+    {
+        "name": "toilet",
+        "desc": "🚽 You cleaned the toilets but… disaster. Covered in 💩",
+        "color": discord.Color.dark_gray(),
+        "payout": (0.25, 0.25)
+    },
+    {
+        "name": "meme69",
+        "desc": "😂 Nice job. Somebody tipped you $69. Nice.",
+        "color": discord.Color.green(),
+        "payout": (69, 69)
+    },
+    {
+        "name": "meme420",
+        "desc": "🔥 Blazing! You got tipped $420 for style.",
+        "color": discord.Color.dark_green(),
+        "payout": (420, 420)
+    },
+    {
+        "name": "goldrush",
+        "desc": "🏆 GOLD RUSH! You sold golden nuggets.",
+        "color": discord.Color.gold(),
+        "payout": (300_000, 600_000)
+    },
+    {
+        "name": "lottery",
+        "desc": "🎟️ You hit the underground lotto!",
+        "color": discord.Color.teal(),
+        "payout": (150_000, 500_000)
+    },
+    {
+        "name": "sponsorship",
+        "desc": "📢 Sponsored by Shady Brand™.",
+        "color": discord.Color.orange(),
+        "payout": (100_000, 250_000)
+    },
+    {
+        "name": "artifact",
+        "desc": "🗿 You found a priceless artifact.",
+        "color": discord.Color.blue(),
+        "payout": (200_000, 400_000)
     }
 ]
+
 
 def pick_special_job():
     # first gate: global special chance
@@ -290,73 +327,111 @@ def roll_tip():
 # legendary: 10,000–50,000
 # secret:    100,000–1,000,000
 # dev:       flat 1,000,000 (special)
+# --- job table with moderate inflation ---
+# Payout ranges in dollars
+# common:    10–80
+# uncommon:  150–500
+# rare:      400–2,000
+# epic:      1,500–6,000
+# legendary: 10,000–50,000
+# secret:    100,000–1,000,000
+# specials handled separately
+
 jobs = {
     "common": {
         "chance": 0.55,
-        "payout": (50, 200),
+        "payout": (10, 80),
         "list": [
-            "washed someone’s car","mowed a lawn","delivered a pizza","walked a dog","helped carry groceries",
+            # ~100 filler commons
+            "washed someone’s car","buttered a baguette", "mowed a lawn","delivered a pizza","walked a dog","helped carry groceries",
             "cleaned a garage","painted a fence","tutored a kid","bagged groceries","worked as a cashier",
             "raked leaves","did laundry","shoveled snow","washed dishes","babysat for a neighbor",
             "picked up trash","organized a closet","recycled cans","swept a porch","helped move furniture",
             "assembled flat-pack furniture","sorted library books","wiped store shelves","restocked a cooler","cleaned aquarium glass",
             "handed out flyers","watered plants","vacuumed a car interior","cleaned windows","ran a coffee errand",
             "set up folding chairs","took down decorations","organized a toolbox","wiped down gym equipment","carried groceries to a car",
-            "rolled silverware at a diner","sorted mail","counted inventory","bagged leaves","refilled bird feeders"
+            "rolled silverware at a diner","sorted mail","counted inventory","bagged leaves","refilled bird feeders",
+            "folded laundry at a laundromat","sorted recycling","swept up sawdust","collected carts in a lot","refilled napkin dispensers",
+            "stacked soda cans into a pyramid","swept up popcorn in a theater","tested pens at a bank","restocked vending machines","moved chairs in a classroom",
+            "bagged candy at a fair","swept gym floors","helped paint faces at a carnival","stacked chairs after an event","helped set up a lemonade stand",
+            "sorted pencils in a jar","filled water balloons","helped inflate bouncy castle","folded origami for tips","carried signs in a parade",
+            "reset bowling pins manually","helped sell popcorn","folded brochures","counted tickets at arcade","sprayed down muddy boots",
+            "swept parking lot","cleaned public benches","organized lost and found","helped sweep leaves off roof","shined shoes for commuters",
+            "bagged bread at bakery","tied balloons for kids","cleaned chalkboards","erased whiteboards","restocked printer paper",
+            "sorted library DVDs","helped set up karaoke","carried drinks to tables","stacked fruit crates","watered public park plants",
+            "folded cardboard boxes","restocked office supplies","helped clean fish tanks","emptied wastebaskets","organized shelves in store"
         ]
     },
     "uncommon": {
         "chance": 0.25,
         "payout": (150, 500),
         "list": [
+            # ~60 uncommon
             "fixed a bike","painted a room","carried heavy boxes","helped repair a fence","dog-sat overnight",
             "assembled a PC","installed a ceiling fan","detailed a car","set up a backyard tent","mounted a TV",
             "repaired a leaky faucet","edited a short video","designed a flyer","photographed a birthday","set up a sound system",
-            "installed window blinds","organized a garage sale","prepped meal boxes","built a garden bed","patched drywall"
+            "installed window blinds","organized a garage sale","prepped meal boxes","built a garden bed","patched drywall",
+            "carried DJ equipment","helped build IKEA furniture","repaired a skateboard","painted murals for a café","assisted in a classroom",
+            "helped cook at a food stall","assembled shelves","polished shoes at a wedding","built a treehouse","repaired garden lights",
+            "set up fireworks (carefully!)","stitched a costume","filmed a school play","edited YouTube vlogs","fixed a leaky roof corner",
+            "tuned a guitar","set up a LAN party","wired holiday lights","designed a menu board","carved a pumpkin for display",
+            "spray painted a mural wall","set up science fair booth","organized cosplay props","cleaned projector lenses","assisted at art gallery",
+            "tuned roller skates","painted garden gnomes","helped build birdhouses","carved wood toys","decorated cakes for a party",
+            "painted parking lot stripes","stitched patches on jeans","fixed a fan belt","helped with recycling project","installed shelves"
         ]
     },
     "rare": {
         "chance": 0.12,
         "payout": (400, 2000),
         "list": [
-            "modeled for a commercial","worked backstage at a concert","helped a local news team",
+            # ~40 rares
+            "modeled for a commercial","played pickleball", "worked backstage at a concert","helped a local news team",
             "carried VIP luggage","painted a mural","assisted a photographer","drove a limo for a wedding",
             "ran lights for a theater show","catered a private event","guided a city tour",
             "commissioned a pet portrait","fixed a vintage record player","restored a bicycle",
-            "DJ’d a school dance","shot drone footage for real estate"
+            "DJ’d a school dance","shot drone footage for real estate","sold merch at a big event",
+            "handled fireworks display","built props for theater","staged a gallery show","sold flowers at festival",
+            "helped at esports tournament","set up streamer gear","painted an esports logo","installed neon signs",
+            "guided tourists on segways","restored antiques","designed game avatars","painted tabletop minis","built arcade fight sticks",
+            "handled school radio show","helped code a small app","staged a DJ booth","set up gaming chairs","drove catering van",
+            "organized comic-con booth","fixed lighting rigs","did background acting","ran local VR demo","edited pro cosplay photos"
         ]
     },
     "epic": {
         "chance": 0.06,
         "payout": (1500, 6000),
         "list": [
+            # ~25 epics
             "helped on a movie set","delivered a speech for the mayor","flew as a private-jet assistant",
             "guided a celebrity tour","modeled designer clothes","staged a luxury home",
             "produced a pop-up event","shot a brand campaign","ghost-wrote a viral post",
-            "consulted on game balance","built a custom keyboard","restored a classic arcade cabinet"
+            "consulted on game balance","built a custom keyboard","restored a classic arcade cabinet",
+            "helped host TED Talk","painted luxury cars","did voice acting for anime","built esports stage","handled VR showcase",
+            "set up streaming marathon","filmed esports finals","modeled jewelry","helped run science expo","did live radio hosting",
+            "managed backstage pyrotechnics","helped build escape room","set up crypto mining rigs"
         ]
     },
     "legendary": {
         "chance": 0.02,
         "payout": (10000, 50000),
         "list": [
-            "helped launch a rocket","discovered hidden treasure","performed in a world-famous concert",
+            # ~15 legendaries
+            "helped launch a rocket","jorked off a dwarf", "discovered hidden treasure","performed in a world-famous concert",
             "auctioned a rare collector’s card","found a mint-condition comic","rescued a stranded yacht",
-            "won a hackathon grand prize","flipped a barn-find motorcycle","sold a vintage camera collection"
+            "won a hackathon grand prize","flipped a barn-find motorcycle","sold a vintage camera collection",
+            "restored a lost painting","won underground chess grandmaster","streamed to 1M live viewers",
+            "caught rare Pokémon GO spawn IRL","helped launch indie game","found a gold vein while hiking"
         ]
     },
     "secret": {
-        "chance": 0.001,  # 0.1%
+        "chance": 0.001,
         "payout": (100000, 1000000),
         "list": [
-            "won a mysterious briefcase auction","found a safe behind a wall","sold a rare diamond at midnight"
+            # ~10 secrets
+            "won a mysterious briefcase auction","found a safe behind a wall","sold a rare diamond at midnight",
+            "hacked into a forgotten crypto wallet","discovered hidden cave paintings","restored an ancient manuscript",
+            "found $500,000 in attic","traded a golden Pokémon card","repaired a broken Fabergé egg","auctioned ancient coins"
         ]
-    },
-    # we’ll keep 'dev' here so the table is complete; we’ll wire special mechanics later.
-    "dev": {
-        "chance": 0.0,  # picked by special logic later
-        "payout": (1_000_000, 1_000_000),
-        "list": ["how did you get this? are you cheating? what? who are you?!?!"]
     }
 }
 
@@ -386,7 +461,7 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
 
     # Set custom status
-    activity = discord.CustomActivity(name=f"getting a j*b at {BOT_VERSION}")
+    activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
     # Load last announced version
