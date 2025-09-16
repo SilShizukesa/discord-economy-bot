@@ -13,7 +13,7 @@ from discord import app_commands
 
 
 # Version of the bot
-BOT_VERSION = "V0.0.02"
+BOT_VERSION = "V0.0.03"
 
 
 intents = discord.Intents.default()
