@@ -10,10 +10,25 @@ from dotenv import load_dotenv
 import time
 from discord import Member
 from discord import app_commands
-
+import subprocess
 
 # Version of the bot
 BOT_VERSION = "V0.0.04.1"
+
+
+
+def get_last_commit_message():
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=%B"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return result.stdout.strip()
+    except Exception as e:
+        print(f"Error getting commit message: {e}")
+        return ""
 
 
 intents = discord.Intents.default()
@@ -521,7 +536,6 @@ def pick_job():
     payout = round(random.uniform(*jobs["common"]["payout"]), 2)
     return "common", job, payout
 
-# --- events & commands ---
 @bot.event
 async def on_ready():
     await bot.tree.sync()
@@ -531,18 +545,9 @@ async def on_ready():
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
-    # Load last announced version
-    last_version = None
-    if os.path.exists(META_FILE):
-        try:
-            with open(META_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                last_version = data.get("last_announced_version")
-        except Exception as e:
-            print(f"⚠️ Could not read {META_FILE}: {e}")
-
-    # Only announce if version changed
-    if BOT_VERSION != last_version:
+    # Check last commit message instead of version bump
+    commit_msg = get_last_commit_message()
+    if commit_msg.lower().startswith("patch:"):
         try:
             with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
                 lines = f.readlines()
@@ -566,12 +571,9 @@ async def on_ready():
                 )
                 await channel.send(embed=embed)
 
-            # Update meta.json so we don’t repost
-            with open(META_FILE, "w", encoding="utf-8") as f:
-                json.dump({"last_announced_version": BOT_VERSION}, f, indent=2)
-
         except Exception as e:
             print(f"⚠️ Could not send patch notes: {e}")
+
 
 
 @bot.tree.command(name="balance", description="Check how much money you have")
