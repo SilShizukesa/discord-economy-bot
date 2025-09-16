@@ -1,7 +1,6 @@
 # Patch Notes
 
-##V0.0.04
-
+## V0.0.04
 - Added /buffs command to let users check active buffs.
 - Introduced Alcohol Luck buff:
    • Costs $5,000 to buy.
