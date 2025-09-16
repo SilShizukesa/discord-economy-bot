@@ -6,6 +6,8 @@ import json
 import os
 from discord import app_commands
 import asyncio
+from dotenv import load_dotenv
+import os
 
 
 intents = discord.Intents.default()
@@ -1004,7 +1006,7 @@ async def work_cmd(interaction: discord.Interaction):
 
 
 
-# Run the bot
-bot.run("MTQxNzMxMDg5ODY2MTM2Mzg4NA.Gjjz9n.rO1e9CXsx5v-P_5qGM5uevQ7xVCVQv6U5RwXm8")
-
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
+bot.run(TOKEN)
 
