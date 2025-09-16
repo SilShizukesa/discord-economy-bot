@@ -17,20 +17,6 @@ BOT_VERSION = "V0.0.04.1"
 
 
 
-def get_last_commit_message():
-    try:
-        result = subprocess.run(
-            ["git", "log", "-1", "--pretty=%B"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        return result.stdout.strip()
-    except Exception as e:
-        print(f"Error getting commit message: {e}")
-        return ""
-
-
 def last_commit_touched_patch_notes():
     try:
         result = subprocess.run(
@@ -563,8 +549,7 @@ async def on_ready():
 
     # --- Patch notes posting logic ---
     try:
-        commit_msg = get_last_commit_message()
-        if commit_msg.lower().startswith("patch:") and last_commit_touched_patch_notes():
+        if last_commit_touched_patch_notes():
             with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
                 lines = f.readlines()
 
@@ -593,11 +578,10 @@ async def on_ready():
             else:
                 print("⚠️ No patch notes section found.")
         else:
-            print("ℹ️ No patch commit detected — skipping patch notes.")
+            print("ℹ️ Last commit didn’t touch PATCH_NOTES.md — skipping announcement.")
 
     except Exception as e:
         print(f"⚠️ Could not send patch notes: {e}")
-
 
 
 
