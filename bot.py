@@ -1201,6 +1201,43 @@ async def show_buffs(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
+@bot.tree.command(name="pay", description="Pay another user some of your money")
+@app_commands.describe(member="The user you want to pay", amount="How much money to send")
+async def pay_cmd(interaction: discord.Interaction, member: discord.Member, amount: float):
+    payer_id = interaction.user.id
+    receiver_id = member.id
+
+    # Disallow paying yourself
+    if payer_id == receiver_id:
+        await interaction.response.send_message("❌ You cannot pay yourself.", ephemeral=True)
+        return
+
+    # Validate amount
+    if amount <= 0:
+        await interaction.response.send_message("❌ Payment amount must be greater than 0.", ephemeral=True)
+        return
+
+    # Check if payer has enough money
+    if balances.get(payer_id, 0.0) < amount:
+        await interaction.response.send_message("❌ You don’t have enough money to complete this payment.", ephemeral=True)
+        return
+
+    # Transfer money
+    balances[payer_id] = balances.get(payer_id, 0.0) - amount
+    balances[receiver_id] = balances.get(receiver_id, 0.0) + amount
+    save_balances()
+
+    # Confirmation embed
+    embed = discord.Embed(
+        title="💸 Payment Successful!",
+        description=(
+            f"{interaction.user.mention} paid {member.mention} **${amount:,.2f}**.\n\n"
+            f"Your new balance: **${balances[payer_id]:,.2f}**"
+        ),
+        color=discord.Color.gold()
+    )
+    await interaction.response.send_message(embed=embed)
+
 
 
 
@@ -1215,6 +1252,24 @@ async def work_cmd(interaction: discord.Interaction):
         return
 
     user_id = interaction.user.id
+
+    # ---- 0) chance to misfire (10%) ----
+    if random.random() < 0.1:  # 10% chance to fail
+        fail_messages = [
+            "ATS didn’t like your resume, please fix it and try again.",
+            "You threw up in your interview, GGs.",
+            "The employer saw your social media history, you’re cooked buddy.",
+            "Your references ghosted HR, better luck next time.",
+            "The company went on a hiring freeze just as you applied. Ouch."
+        ]
+        fail_text = random.choice(fail_messages)
+        embed = discord.Embed(
+            title=f"{interaction.user.name} tried to work...",
+            description=f"❌ {fail_text}",
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed)
+        return
 
     # ---- 1) try special-event jobs first ----
     special = pick_special_job()
@@ -1330,7 +1385,6 @@ async def work_cmd(interaction: discord.Interaction):
                     f"{emoji} {interaction.user.mention} just worked a **{rarity.upper()} job** "
                     f"and made ${final_payout:,.2f}!"
                 )
-
 
 
 
