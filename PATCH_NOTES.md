@@ -1,5 +1,9 @@
 # Patch Notes
 
+## V0.0.05 
+- Added the /pay feature, pay your friends!
+- Added the ability to fail your /work attempts, *are you able to even work man?*
+
 ## V0.0.04.1
 - hotfixed roulette, coinflip not decrementing uses of buff
 - buff should not crash now
