@@ -16,35 +16,6 @@ import subprocess
 BOT_VERSION = "V0.0.04.1"
 
 
-def get_last_commit_message():
-    try:
-        result = subprocess.run(
-            ["git", "log", "-1", "--pretty=%B"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        return result.stdout.strip()
-    except Exception as e:
-        print(f"Error getting commit message: {e}")
-        return ""
-
-
-def last_commit_touched_patch_notes():
-    try:
-        result = subprocess.run(
-            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        files = result.stdout.splitlines()
-        return any("PATCH_NOTES.md" in f for f in files)
-    except Exception as e:
-        print(f"Error checking commit files: {e}")
-        return False
-
-
 
 
 intents = discord.Intents.default()
@@ -562,42 +533,7 @@ async def on_ready():
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
-    # --- Patch Notes Announcer ---
-    try:
-        commit_msg = get_last_commit_message()
-        if commit_msg.lower().startswith("patch:") and last_commit_touched_patch_notes():
-            with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            latest = []
-            for line in lines:
-                if line.startswith("## "):
-                    if latest:  # stop after the first section
-                        break
-                    latest.append(line.strip())
-                elif latest:
-                    latest.append(line.strip())
-
-            patch_text = "\n".join(latest).strip()
-
-            if patch_text:
-                channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
-                if channel:
-                    embed = discord.Embed(
-                        title=f"📢 New Update: {BOT_VERSION}",
-                        description=patch_text,
-                        color=discord.Color.green()
-                    )
-                    await channel.send(embed=embed)
-                else:
-                    print("⚠️ Could not find PATCH_NOTES channel.")
-            else:
-                print("⚠️ No patch notes section found.")
-        else:
-            print("ℹ️ No patch commit detected — skipping patch notes.")
-
-    except Exception as e:
-        print(f"⚠️ Could not send patch notes: {e}")
+    
 
 
 
