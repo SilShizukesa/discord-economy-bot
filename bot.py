@@ -16,6 +16,19 @@ import subprocess
 BOT_VERSION = "V0.0.04.1"
 
 
+def get_last_commit_message():
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=%B"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return result.stdout.strip()
+    except Exception as e:
+        print(f"Error getting commit message: {e}")
+        return ""
+
 
 def last_commit_touched_patch_notes():
     try:
@@ -31,34 +44,6 @@ def last_commit_touched_patch_notes():
         print(f"Error checking commit files: {e}")
         return False
 
-LAST_PATCH_FILE = "last_patch.txt"
-
-def get_latest_patch_notes():
-    with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
-        lines = f.readlines()
-
-    latest = []
-    for line in lines:
-        if line.startswith("## "):
-            if latest:  # stop after the first section
-                break
-            latest.append(line.strip())
-        elif latest:
-            latest.append(line.strip())
-
-    return "\n".join(latest).strip()
-
-
-def get_last_announced_patch():
-    if os.path.exists(LAST_PATCH_FILE):
-        with open(LAST_PATCH_FILE, "r", encoding="utf-8") as f:
-            return f.read().strip()
-    return ""
-
-
-def save_last_announced_patch(patch_text):
-    with open(LAST_PATCH_FILE, "w", encoding="utf-8") as f:
-        f.write(patch_text)
 
 
 
@@ -573,29 +558,43 @@ async def on_ready():
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
 
-    # Set status
+    # Set custom status
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
     # --- Patch Notes Announcer ---
     try:
-        latest_patch = get_latest_patch_notes()
-        last_announced = get_last_announced_patch()
+        commit_msg = get_last_commit_message()
+        if commit_msg.lower().startswith("patch:") and last_commit_touched_patch_notes():
+            with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
+                lines = f.readlines()
 
-        if latest_patch and latest_patch != last_announced:
-            channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
-            if channel:
-                embed = discord.Embed(
-                    title=f"📢 New Update: {BOT_VERSION}",
-                    description=latest_patch,
-                    color=discord.Color.green()
-                )
-                await channel.send(embed=embed)
-                save_last_announced_patch(latest_patch)
+            latest = []
+            for line in lines:
+                if line.startswith("## "):
+                    if latest:  # stop after the first section
+                        break
+                    latest.append(line.strip())
+                elif latest:
+                    latest.append(line.strip())
+
+            patch_text = "\n".join(latest).strip()
+
+            if patch_text:
+                channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
+                if channel:
+                    embed = discord.Embed(
+                        title=f"📢 New Update: {BOT_VERSION}",
+                        description=patch_text,
+                        color=discord.Color.green()
+                    )
+                    await channel.send(embed=embed)
+                else:
+                    print("⚠️ Could not find PATCH_NOTES channel.")
             else:
-                print("⚠️ Could not find PATCH_NOTES channel.")
+                print("⚠️ No patch notes section found.")
         else:
-            print("ℹ️ No new patch notes to announce.")
+            print("ℹ️ No patch commit detected — skipping patch notes.")
 
     except Exception as e:
         print(f"⚠️ Could not send patch notes: {e}")
