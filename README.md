@@ -38,3 +38,7 @@ python bot.py
 Hosting
 This bot can run locally or be deployed on platforms like Railway for 24/7 uptime.
 Add your DISCORD_TOKEN as a secret in the platform’s environment settings.
+
+## License
+This project is licensed under the MIT License.  
+See the [LICENSE](LICENSE) file for details.
