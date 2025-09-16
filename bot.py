@@ -10,6 +10,11 @@ from dotenv import load_dotenv
 import os
 
 
+
+# Version of the bot
+BOT_VERSION = "V0.0.01"
+
+
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -377,6 +382,14 @@ def pick_job():
 async def on_ready():
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
+
+    # Set a custom status dynamically using the version
+    activity = discord.Activity(
+        type=discord.ActivityType.playing,  # could also be watching/listening/competing
+        name=f"getting a j*b at {BOT_VERSION}"
+    )
+    await bot.change_presence(status=discord.Status.online, activity=activity)
+
 
 @bot.tree.command(name="balance", description="Check how much money you have")
 async def balance_cmd(interaction: discord.Interaction):
