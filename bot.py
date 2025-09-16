@@ -545,34 +545,32 @@ async def on_ready():
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
-    # Check last commit message instead of version bump
-    commit_msg = get_last_commit_message()
-    if commit_msg.lower().startswith("patch:"):
-        try:
-            with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
-                lines = f.readlines()
+    # Only post patch notes when BOT_VERSION was bumped manually
+    try:
+        with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
+            lines = f.readlines()
 
-            latest = []
-            for line in lines:
-                if line.startswith("## "):
-                    if latest:  # stop once we finish the first section
-                        break
-                    latest.append(line.strip())
-                elif latest:
-                    latest.append(line.strip())
-            patch_text = "\n".join(latest)
+        latest = []
+        for line in lines:
+            if line.startswith("## "):
+                if latest:  # stop once we finish the first section
+                    break
+                latest.append(line.strip())
+            elif latest:
+                latest.append(line.strip())
+        patch_text = "\n".join(latest)
 
-            channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
-            if channel:
-                embed = discord.Embed(
-                    title=f"📢 New Update: {BOT_VERSION}",
-                    description=patch_text,
-                    color=discord.Color.green()
-                )
-                await channel.send(embed=embed)
+        channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
+        if channel:
+            embed = discord.Embed(
+                title=f"📢 New Update: {BOT_VERSION}",
+                description=patch_text,
+                color=discord.Color.green()
+            )
+            await channel.send(embed=embed)
 
-        except Exception as e:
-            print(f"⚠️ Could not send patch notes: {e}")
+    except Exception as e:
+        print(f"⚠️ Could not send patch notes: {e}")
 
 
 
