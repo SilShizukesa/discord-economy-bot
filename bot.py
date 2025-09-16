@@ -31,6 +31,35 @@ def last_commit_touched_patch_notes():
         print(f"Error checking commit files: {e}")
         return False
 
+LAST_PATCH_FILE = "last_patch.txt"
+
+def get_latest_patch_notes():
+    with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    latest = []
+    for line in lines:
+        if line.startswith("## "):
+            if latest:  # stop after the first section
+                break
+            latest.append(line.strip())
+        elif latest:
+            latest.append(line.strip())
+
+    return "\n".join(latest).strip()
+
+
+def get_last_announced_patch():
+    if os.path.exists(LAST_PATCH_FILE):
+        with open(LAST_PATCH_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return ""
+
+
+def save_last_announced_patch(patch_text):
+    with open(LAST_PATCH_FILE, "w", encoding="utf-8") as f:
+        f.write(patch_text)
+
 
 
 intents = discord.Intents.default()
@@ -538,47 +567,35 @@ def pick_job():
     payout = round(random.uniform(*jobs["common"]["payout"]), 2)
     return "common", job, payout
 
+
 @bot.event
 async def on_ready():
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
 
-    # Set custom status
+    # Set status
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
 
-    # --- Patch notes posting logic ---
+    # --- Patch Notes Announcer ---
     try:
-        if last_commit_touched_patch_notes():
-            with open("PATCH_NOTES.md", "r", encoding="utf-8") as f:
-                lines = f.readlines()
+        latest_patch = get_latest_patch_notes()
+        last_announced = get_last_announced_patch()
 
-            latest = []
-            for line in lines:
-                if line.startswith("## "):
-                    if latest:  # stop after the first section
-                        break
-                    latest.append(line.strip())
-                elif latest:
-                    latest.append(line.strip())
-
-            patch_text = "\n".join(latest).strip()
-
-            if patch_text:
-                channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
-                if channel:
-                    embed = discord.Embed(
-                        title=f"📢 New Update: {BOT_VERSION}",
-                        description=patch_text,
-                        color=discord.Color.green()
-                    )
-                    await channel.send(embed=embed)
-                else:
-                    print("⚠️ Could not find PATCH_NOTES channel.")
+        if latest_patch and latest_patch != last_announced:
+            channel = bot.get_channel(PATCH_NOTES_CHANNEL_ID)
+            if channel:
+                embed = discord.Embed(
+                    title=f"📢 New Update: {BOT_VERSION}",
+                    description=latest_patch,
+                    color=discord.Color.green()
+                )
+                await channel.send(embed=embed)
+                save_last_announced_patch(latest_patch)
             else:
-                print("⚠️ No patch notes section found.")
+                print("⚠️ Could not find PATCH_NOTES channel.")
         else:
-            print("ℹ️ Last commit didn’t touch PATCH_NOTES.md — skipping announcement.")
+            print("ℹ️ No new patch notes to announce.")
 
     except Exception as e:
         print(f"⚠️ Could not send patch notes: {e}")
