@@ -62,7 +62,7 @@ ALCOHOL_PRICE = 5_000.0                 # $5k to buy
 ALCOHOL_COOLDOWN = 6 * 60 * 60          # 6 hours in seconds
 ALCOHOL_BOOST_USES = 5                  # applies to next 5 gambling commands
 COINFLIP_BOOST_WINPROB = 0.54           # 54/46 when boosted (normal is 0.5)
-ROULETTE_COLOR_SALVAGE = 0.088          # ~8.8% “second chance” on color bets to reach ~52% effective
+ROULETTE_COLOR_SALVAGE = 0.025          # ~8.8% “second chance” on color bets to reach ~52% effective
 BUFFS_FILE = "buffs.json"               # persisted here so it survives restarts
 
 # load/save for alcohol buffs
