@@ -13,7 +13,7 @@ from discord import app_commands
 
 
 # Version of the bot
-BOT_VERSION = "V0.0.03"
+BOT_VERSION = "V0.0.04.1"
 
 
 intents = discord.Intents.default()
@@ -40,6 +40,22 @@ ROLE_TIERS = [
     # Employed — total jobs milestone
     {"rarity": "total", "required": 10000, "role_id": 1417348260926062712, "name": "Employed", "prev": 1417347593700380703}
 ]
+
+BUFFS_FILE = "buffs.json"
+buffs = {}
+
+def save_buffs():
+    with open(BUFFS_FILE, "w") as f:
+        json.dump(buffs, f)
+
+def load_buffs():
+    global buffs
+    if os.path.exists(BUFFS_FILE):
+        with open(BUFFS_FILE, "r") as f:
+            buffs = json.load(f)
+    else:
+        buffs = {}
+
 
 # --- Alcohol luck system config ---
 ALCOHOL_PRICE = 5_000.0                 # $5k to buy
@@ -711,6 +727,7 @@ async def coinflip(interaction: discord.Interaction, choice: str, amount: float)
     boost_line = ""
     if boosted:
         left = consume_alcohol_use(uid)
+        save_buffs()  # <--- make sure we persist after decrement
         boost_line = f"\n🍺 Alcohol boost used. **{left}** use(s) left."
 
     save_balances()
@@ -723,6 +740,7 @@ async def coinflip(interaction: discord.Interaction, choice: str, amount: float)
     )
     embed.set_footer(text=f"Bet: ${amount:,.2f}")
     await interaction.response.send_message(embed=embed)
+
 
 # register choices
 @coinflip.autocomplete("choice")
@@ -757,8 +775,11 @@ ROULETTE_WINDOW_SECONDS = 15  # total window for bets
 async def roulette(interaction: discord.Interaction, bet: str, amount: float):
     global roulette_game
 
+    # defer immediately so Discord doesn't time out
+    await interaction.response.defer(thinking=False, ephemeral=False)
+
     if interaction.channel_id != ROULETTE_CHANNEL_ID:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"❌ Roulette can only be played in <#{ROULETTE_CHANNEL_ID}>.",
             ephemeral=True
         )
@@ -770,7 +791,7 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
     valid_bets = ["red", "black", "green", "odd", "even", "1-18", "19-36", "1st12", "2nd12", "3rd12"] \
                  + [str(n) for n in range(37)] + ["00"]
     if bet not in valid_bets:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ Invalid bet. Try red, black, green, odd, even, 1-18, 19-36, 1st12, 2nd12, 3rd12, or a number (0-36, 00).",
             ephemeral=True
         )
@@ -778,19 +799,18 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
 
     bal = balances.get(uid, 0.0)
     if amount <= 0:
-        await interaction.response.send_message("❌ Bet amount must be greater than zero.", ephemeral=True)
+        await interaction.followup.send("❌ Bet amount must be greater than zero.", ephemeral=True)
         return
     if amount > 500_000:
-        await interaction.response.send_message("❌ The maximum bet is $500,000.", ephemeral=True)
+        await interaction.followup.send("❌ The maximum bet is $500,000.", ephemeral=True)
         return
     if amount > bal:
-        await interaction.response.send_message("❌ You don’t have enough money to place that bet.", ephemeral=True)
+        await interaction.followup.send("❌ You don’t have enough money to place that bet.", ephemeral=True)
         return
 
     # helper to append a bet (handles alcohol + pre-deduct)
     async def append_bet(first: bool):
         boosted_now = has_active_alcohol(uid) and (bet in ["red", "black"])
-        # pre-deduct
         balances[uid] = bal - amount if first else balances.get(uid, 0.0) - amount
         save_balances()
 
@@ -800,7 +820,6 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
         else:
             boost_note = ""
 
-        # record the bet (capture boosted flag NOW; only affects this user)
         roulette_game["bets"].append({
             "user_id": uid,
             "bet": bet,
@@ -815,11 +834,11 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
         )
         chan = bot.get_channel(roulette_game["channel_id"])
         if first:
-            await chan.send(embed=embed_bet)  # first bet gets posted to channel
+            await chan.send(embed=embed_bet)
         else:
-            await interaction.response.send_message(embed=embed_bet)  # subsequent bets respond to user
+            await interaction.followup.send(embed=embed_bet)
 
-    # start game if needed
+    # start new game
     if not roulette_game["active"]:
         roulette_game["active"] = True
         roulette_game["bets"] = []
@@ -830,14 +849,12 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
             description=f"Place your bets in the next **{ROULETTE_WINDOW_SECONDS} seconds** with `/roulette`!",
             color=discord.Color.gold()
         )
-        await interaction.response.send_message(embed=embed_start)
+        await interaction.followup.send(embed=embed_start)
 
-        # add first bet
         await append_bet(first=True)
 
         async def finish_round():
             chan = bot.get_channel(roulette_game["channel_id"])
-            # last call 5s before close
             await asyncio.sleep(max(0, ROULETTE_WINDOW_SECONDS - 5))
             if chan:
                 await chan.send(embed=discord.Embed(
@@ -845,10 +862,8 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
                     description="5 seconds left to place your bets!",
                     color=discord.Color.orange()
                 ))
-
             await asyncio.sleep(5)
 
-            # spin the wheel (American: 0–36 + 00)
             spin = random.randint(0, 37)
             if spin == 37:
                 result = "00"
@@ -872,7 +887,6 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
                 )
                 await chan.send(embed=embed_result)
 
-                # resolve bets
                 for bet_data in roulette_game["bets"]:
                     uid2 = bet_data["user_id"]
                     bet_choice = bet_data["bet"]
@@ -881,8 +895,8 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
 
                     payout = 0.0
                     win = False
+                    salvaged = False
 
-                    # straight number
                     if bet_choice == result:
                         payout = wager * 35
                         win = True
@@ -890,7 +904,6 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
                         payout = wager * 35
                         win = True
 
-                    # colors
                     if bet_choice in ["red", "black"] and bet_choice == color:
                         payout = wager * 2
                         win = True
@@ -898,7 +911,6 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
                         payout = wager * 35
                         win = True
 
-                    # odd/even
                     if bet_choice == "odd" and result not in ["0", "00"] and int(result) % 2 == 1:
                         payout = wager * 2
                         win = True
@@ -906,7 +918,6 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
                         payout = wager * 2
                         win = True
 
-                    # low/high
                     if bet_choice == "1-18" and result not in ["0", "00"] and 1 <= int(result) <= 18:
                         payout = wager * 2
                         win = True
@@ -914,7 +925,6 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
                         payout = wager * 2
                         win = True
 
-                    # dozens
                     if bet_choice == "1st12" and result not in ["0", "00"] and 1 <= int(result) <= 12:
                         payout = wager * 3
                         win = True
@@ -925,18 +935,13 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
                         payout = wager * 3
                         win = True
 
-                    # 🍺 alcohol salvage on color bets only, per-user (does not help others)
+                    # 🍺 salvage luck on color bets only
                     if not win and boosted_color and bet_choice in ["red", "black"]:
                         if random.random() < ROULETTE_COLOR_SALVAGE:
                             payout = wager * 2
                             win = True
                             salvaged = True
-                        else:
-                            salvaged = False
-                    else:
-                        salvaged = False
 
-                    # settle & announce
                     if win:
                         balances[uid2] = balances.get(uid2, 0.0) + payout
                         note = " (🍺 lucky sway!)" if salvaged else ""
@@ -956,7 +961,15 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
 
                 save_balances()
 
-            # reset table
+            # decrement buffs
+            for bet_data in roulette_game["bets"]:
+                uid = str(bet_data["user_id"])
+                if uid in buffs and "alcohol" in buffs[uid]:
+                    buffs[uid]["alcohol"]["uses"] -= 1
+                    if buffs[uid]["alcohol"]["uses"] <= 0:
+                        del buffs[uid]["alcohol"]
+            save_buffs()
+
             roulette_game["active"] = False
             roulette_game["bets"] = []
             roulette_game["channel_id"] = None
@@ -964,18 +977,19 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
         asyncio.create_task(finish_round())
         return
 
-    # join existing game in same channel
+    # join active game
     if roulette_game["active"]:
         if interaction.channel_id != roulette_game["channel_id"]:
             chan = bot.get_channel(roulette_game["channel_id"])
             chan_mention = chan.mention if chan else "#unknown"
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ A roulette game is already running in {chan_mention}. Please join it there!",
                 ephemeral=True
             )
             return
 
         await append_bet(first=False)
+
 
 
 
@@ -1194,10 +1208,9 @@ async def alcohol_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="buffs", description="Check your active buffs")
-async def buffs(interaction: discord.Interaction):
+async def show_buffs(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
 
-    # If user has no buffs
     if user_id not in buffs or not buffs[user_id]:
         await interaction.response.send_message(
             embed=discord.Embed(
@@ -1209,12 +1222,12 @@ async def buffs(interaction: discord.Interaction):
         )
         return
 
-    # Build buff list
     desc_lines = []
     for buff_name, buff_data in buffs[user_id].items():
         if buff_name == "alcohol":
             desc_lines.append(
-                f"🍺 **Alcohol Luck** — {buff_data['uses']} uses left (expires in 6h cooldown)"
+                f"🍺 **Alcohol Luck** — {buff_data['uses']} uses left "
+                f"(cooldown 6h before rebuy)"
             )
 
     embed = discord.Embed(
