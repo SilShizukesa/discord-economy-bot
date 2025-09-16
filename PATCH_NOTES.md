@@ -3,6 +3,7 @@
 ## V0.0.04.1
 - hotfixed roulette, coinflip not decrementing uses of buff
 - buff should not crash now
+- testing patch notes
 
 ## V0.0.04
 - Added /buffs command to let users check active buffs.
