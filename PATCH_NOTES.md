@@ -1,5 +1,12 @@
 # Patch Notes
 
+## V0.0.06 *THE CAREER LADDER UPDATE*
+- Welcome to the career ladder!
+   * Tier system has been reworked to be a continuous progression based system where completing jobs pushed you through the career ladder
+   * New tiers added!
+- Added in /jobstats to see how many jobs youve done
+- Added in /resume to see your tier progress and....other things...
+
 ## V0.0.05 
 - Added the /pay feature, pay your friends!
 - Added the ability to fail your /work attempts, *are you able to even work man?*
