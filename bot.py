@@ -482,14 +482,14 @@ pool = None  # define at top of file, but don’t await here
 async def on_ready():
     global pool
     if pool is None:
-        ssl_ctx = ssl.create_default_context()
-        pool = await asyncpg.create_pool(DATABASE_URL, ssl=ssl_ctx)
+        pool = await asyncpg.create_pool(DATABASE_URL)  # no ssl
         await init_db()
 
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
+
 
 
 # ---------- Commands ----------
