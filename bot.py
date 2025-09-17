@@ -920,20 +920,31 @@ async def leaderboardjob(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 #[NUCLEAR OPTION]
-@bot.tree.command(name="resetall", description="⚠️ Reset ALL data: balances, job counts, and highest jobs (Admin only)")
+@bot.tree.command(name="resetall", description="⚠️ Reset ALL data: balances, job counts, highest jobs, and buffs (Admin only)")
 @app_commands.checks.has_permissions(administrator=True)
 async def reset_all(interaction: discord.Interaction):
     async with pool.acquire() as conn:
-        # Wipe balances
+        # Reset balances
         await conn.execute("UPDATE balances SET balance=0;")
-        # Wipe job counts
+        
+        # Reset job counts
         await conn.execute("""
             UPDATE job_counts
-            SET common=0, uncommon=0, rare=0, epic=0, legendary=0, secret=0, special=0, total=0;
+            SET common=0, uncommon=0, rare=0, epic=0,
+                legendary=0, secret=0, special=0;
         """)
-        # Wipe highest jobs
+        
+        # Clear highest jobs
         await conn.execute("TRUNCATE highest_jobs;")
-    await interaction.response.send_message("⚠️ All data has been reset. (Balances, job counts, and highest jobs)", ephemeral=True)
+        
+        # Reset buffs
+        await conn.execute("UPDATE buffs SET uses=0, cooldown_until=0;")
+    
+    await interaction.response.send_message(
+        "⚠️ All data has been reset (balances, job counts, highest jobs, and buffs).",
+        ephemeral=True
+    )
+
 
 
 # Alcohol
