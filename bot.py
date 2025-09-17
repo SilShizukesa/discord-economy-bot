@@ -475,20 +475,27 @@ async def pick_job(user_id: int):
 
 # ---------- Discord events ----------
 import ssl
-
-pool = None  # define at top of file, but don’t await here
+# Create SSL context for PostgreSQL
+ssl_ctx = ssl.create_default_context()
+ssl_ctx.check_hostname = False
+ssl_ctx.verify_mode = ssl.CERT_NONE
 
 @bot.event
 async def on_ready():
     global pool
     if pool is None:
-        pool = await asyncpg.create_pool(DATABASE_URL)  # no ssl
+        pool = await asyncpg.create_pool(
+            DATABASE_URL,
+            ssl=ssl_ctx,
+            statement_cache_size=0   # <-- fix for PgBouncer duplicate statement error
+        )
         await init_db()
 
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
+
 
 
 
