@@ -919,46 +919,22 @@ async def leaderboardjob(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=embed)
 
-# Reset balances (all)
-@bot.tree.command(name="resetbalances", description="Admin: reset ALL user balances to $0 (irreversible without backup)")
-@app_commands.describe(confirm="Type CONFIRM to perform the reset")
-async def resetbalances(interaction: discord.Interaction, confirm: str):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You must be a server administrator to use this.", ephemeral=True)
-        return
+#[NUCLEAR OPTION]
+@bot.tree.command(name="resetall", description="⚠️ Reset ALL data: balances, job counts, and highest jobs (Admin only)")
+@app_commands.checks.has_permissions(administrator=True)
+async def reset_all(interaction: discord.Interaction):
+    async with pool.acquire() as conn:
+        # Wipe balances
+        await conn.execute("UPDATE balances SET balance=0;")
+        # Wipe job counts
+        await conn.execute("""
+            UPDATE job_counts
+            SET common=0, uncommon=0, rare=0, epic=0, legendary=0, secret=0, special=0, total=0;
+        """)
+        # Wipe highest jobs
+        await conn.execute("TRUNCATE highest_jobs;")
+    await interaction.response.send_message("⚠️ All data has been reset. (Balances, job counts, and highest jobs)", ephemeral=True)
 
-    if confirm != "CONFIRM":
-        await interaction.response.send_message(
-            "⚠️ This will reset everyone's balance to $0. To confirm, re-run with `confirm=CONFIRM`.",
-            ephemeral=True
-        )
-        return
-
-    # backup dump to a file in the container (ephemeral, but helpful)
-    try:
-        ts = int(time.time())
-        backup_name = f"db_backup_{ts}.json"
-        await export_state_to_file(backup_name)
-    except Exception as e:
-        await interaction.response.send_message(f"❌ Failed to create backup: {e}", ephemeral=True)
-        return
-
-    await reset_all_balances()
-    await interaction.response.send_message(
-        f"✅ All balances reset to $0. Backup saved as `{backup_name}`.",
-        ephemeral=True
-    )
-    await interaction.channel.send(f"⚠️ All balances were reset by {interaction.user.mention}. Backup: `{backup_name}`")
-
-# Reset one balance
-@bot.tree.command(name="resetbalance", description="Admin: reset one user's balance to $0.00")
-@app_commands.describe(member="The user to reset")
-async def resetbalance(interaction: discord.Interaction, member: discord.Member):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You must be an administrator to use this.", ephemeral=True)
-        return
-    await reset_user_balance(member.id)
-    await interaction.response.send_message(f"✅ Reset {member.mention}'s balance to $0.00.", ephemeral=False)
 
 # Alcohol
 @bot.tree.command(name="alcohol", description="Buy a temporary luck boost for gambling (5 uses). Costs $5,000. 6h cooldown.")
@@ -1048,21 +1024,6 @@ async def pay_cmd(interaction: discord.Interaction, member: discord.Member, amou
     )
     await interaction.response.send_message(embed=embed)
 
-# Reset jobs (one/all)
-@bot.tree.command(name="resetjobs", description="Reset all your job stats (admin only)")
-async def resetjobs(interaction: discord.Interaction, member: discord.Member = None):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You don’t have permission to use this.", ephemeral=True); return
-    target = member or interaction.user
-    await reset_user_jobs(target.id)
-    await interaction.response.send_message(f"🧹 All job stats for {target.mention} have been reset.", ephemeral=False)
-
-@bot.tree.command(name="resetjobsall", description="Reset ALL users' job stats (admin only)")
-async def resetjobsall(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You don’t have permission to use this.", ephemeral=True); return
-    await reset_all_jobs()
-    await interaction.response.send_message("🧹 All users' job stats have been reset across the server.", ephemeral=False)
 
 # Resume
 @bot.tree.command(name="resume", description="Check your career ladder progress and highest-paying job")
