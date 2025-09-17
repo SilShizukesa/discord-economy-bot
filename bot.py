@@ -13,10 +13,11 @@ from discord import app_commands
 import subprocess
 
 # Version of the bot
-BOT_VERSION = "V0.0.04.1"
+BOT_VERSION = "V0.0.05"
 
 
 
+highest_jobs = {}  # user_id -> {"amount": float, "desc": str}
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -26,22 +27,48 @@ WORK_CHANNEL_ID = 1417332114453430282  # replace with your work channel ID
 ROULETTE_CHANNEL_ID = 1417369961172697090  # replace with your roulette channel ID
 PATCH_NOTES_CHANNEL_ID = 1417353769037070366  # replace with your channel ID
 META_FILE = "meta.json"
+# --- test / debug globals ---
+test_mode = False            # toggled by /testmode
+BYPASS_CAREER = False        # internal; toggled together with test_mode
 
-ROLE_TIERS = [
-    # Worker path
-    {"rarity": "common", "required": 100, "role_id": 1417347155617644545, "name": "Worker 2", "prev": None},
-    {"rarity": "common", "required": 400, "role_id": 1417347223875751976, "name": "Worker 3", "prev": 1417347155617644545},
-    # Uncommon path
-    {"rarity": "uncommon", "required": 100, "role_id": 1417347300807938150, "name": "Worker 4", "prev": 1417347223875751976},
-    # Hard Worker path
-    {"rarity": "rare", "required": 200, "role_id": 1417347359196577913, "name": "Hard Worker 1", "prev": 1417347300807938150},
-    {"rarity": "epic", "required": 50, "role_id": 1417347412845924372, "name": "Hard Worker 2", "prev": 1417347359196577913},
-    # Job Master path
-    {"rarity": "legendary", "required": 25, "role_id": 1417347538968903855, "name": "Job Master 1", "prev": 1417347412845924372},
-    {"rarity": "secret", "required": 1, "role_id": 1417347593700380703, "name": "Job Master 2", "prev": 1417347538968903855},
-    # Employed — total jobs milestone
-    {"rarity": "total", "required": 10000, "role_id": 1417348260926062712, "name": "Employed", "prev": 1417347593700380703}
+# default odds (your normal production values)
+SPECIAL_CHANCE = 0.02        # chance to hit a special job (kept in work logic normally)
+TIP_BASE_CHANCE = 0.25       # base chance to roll a tip (use roll_tip to respect this)
+DEV_CHANCE_DENOM = 7777      # denominator for rare dev-style special picks
+
+# test-mode overrides (used when test_mode == True)
+_TEST_SPECIAL_CHANCE = 0.5
+_TEST_TIP_BASE_CHANCE = 1.0   # 100% tip chance during test
+_TEST_DEV_CHANCE_DENOM = 5
+
+# test-mode `allowed` distribution (bypasses career restrictions)
+_TEST_ALLOWED = {
+    "common": 30,
+    "uncommon": 25,
+    "rare": 20,
+    "epic": 15,
+    "legendary": 7,
+    "secret": 3
+}
+
+
+CAREER_PATH = [
+    {"name": "Temp Worker", "required": 0, "role_id": 1417346927246315551, "allowed": {"common": 100, "uncommon": 0, "rare": 0, "epic": 0, "legendary": 0, "secret": 0}},
+    {"name": "Intern", "required": 100, "role_id": 1417347155617644545, "allowed": {"common": 80, "uncommon": 15, "rare": 5, "epic": 0, "legendary": 0, "secret": 0}},
+    {"name": "Low-Level Associate", "required": 250, "role_id": 1417347223875751976, "allowed": {"common": 70, "uncommon": 20, "rare": 8, "epic": 2, "legendary": 0, "secret": 0}},
+    {"name": "Mid-Level Associate", "required": 500, "role_id": 1417347300807938150, "allowed": {"common": 60, "uncommon": 25, "rare": 10, "epic": 5, "legendary": 0, "secret": 0}},
+    {"name": "Senior Associate", "required": 1000, "role_id": 1417347359196577913, "allowed": {"common": 50, "uncommon": 30, "rare": 12, "epic": 7, "legendary": 1, "secret": 0}},
+    {"name": "Lower Management", "required": 1500, "role_id": 1417347412845924372, "allowed": {"common": 40, "uncommon": 35, "rare": 15, "epic": 8, "legendary": 2, "secret": 0}},
+    {"name": "Upper Management", "required": 2500, "role_id": 1417347538968903855, "allowed": {"common": 35, "uncommon": 35, "rare": 18, "epic": 10, "legendary": 2, "secret": 0}},
+    {"name": "HR Administrator", "required": 3500, "role_id": 1417347593700380703, "allowed": {"common": 30, "uncommon": 35, "rare": 20, "epic": 12, "legendary": 3, "secret": 0}},
+    {"name": "Senior Director", "required": 5000, "role_id": 1417668804606955581, "allowed": {"common": 25, "uncommon": 35, "rare": 22, "epic": 13, "legendary": 5, "secret": 0}},
+    {"name": "Vice President", "required": 7500, "role_id": 1417668874026876948, "allowed": {"common": 20, "uncommon": 35, "rare": 25, "epic": 15, "legendary": 5, "secret": 0}},
+    {"name": "President", "required": 15000, "role_id": 1417668935569899630, "allowed": {"common": 15, "uncommon": 30, "rare": 25, "epic": 20, "legendary": 8, "secret": 2}},
+    {"name": "Board of Affairs", "required": 20000, "role_id": 1417669003890921583, "allowed": {"common": 10, "uncommon": 25, "rare": 30, "epic": 20, "legendary": 10, "secret": 5}},
+    {"name": "CEO", "required": 30000, "role_id": 1417669100976734218, "allowed": {"common": 5, "uncommon": 20, "rare": 30, "epic": 25, "legendary": 15, "secret": 5}},
+    {"name": "Employed", "required": 50000, "role_id": 1417348260926062712, "allowed": {"common": 0, "uncommon": 15, "rare": 25, "epic": 30, "legendary": 20, "secret": 10}},
 ]
+
 
 BUFFS_FILE = "buffs.json"
 buffs = {}
@@ -178,7 +205,6 @@ rarity_emojis = {
     "glitch": "⚡",
     "flash-sale": "🛒"
 }
-
 async def update_job_progress(interaction: discord.Interaction, rarity: str):
     user_id = interaction.user.id
 
@@ -200,44 +226,31 @@ async def update_job_progress(interaction: discord.Interaction, rarity: str):
     if not guild:
         return
 
-    for tier in ROLE_TIERS:
-        # normal rarity tiers
-        if tier["rarity"] != "total":
-            if tier["rarity"] == rarity and counts[rarity] >= tier["required"]:
-                role = guild.get_role(tier["role_id"])
-                if not role:
-                    continue
-
-                # skip if they already have this role
-                if role in member.roles:
-                    continue
-
-                # check if they need a previous role
-                if tier["prev"] is not None:
-                    prev_role = guild.get_role(tier["prev"])
-                    if prev_role not in member.roles:
-                        continue
-
-                await member.add_roles(role)
-
-                # 🎉 announce in the server, not DM
-                await interaction.channel.send(
-                    f"🎉 {interaction.user.mention} has leveled up and unlocked **{tier['name']}** "
-                    f"for working {tier['required']} {rarity} jobs!"
-                )
-
-        # total-job milestone tiers
+    # find the highest career stage this user qualifies for
+    unlocked_stage = None
+    for stage in CAREER_PATH:
+        if total_jobs >= stage["required"]:
+            unlocked_stage = stage
         else:
-            if total_jobs >= tier["required"]:
-                role = guild.get_role(tier["role_id"])
-                if role and role not in member.roles:
-                    await member.add_roles(role)
+            break
 
-                    # 🎉 announce in the server, not DM
-                    await interaction.channel.send(
-                        f"🏆 {interaction.user.mention} has unlocked **{tier['name']}** "
-                        f"for completing {total_jobs} total jobs!"
-                    )
+    if unlocked_stage:
+        new_role = guild.get_role(unlocked_stage["role_id"])
+        if new_role and new_role not in member.roles:
+            # remove any old career roles so they only keep the newest
+            career_role_ids = [s["role_id"] for s in CAREER_PATH]
+            roles_to_remove = [r for r in member.roles if r.id in career_role_ids]
+            if roles_to_remove:
+                await member.remove_roles(*roles_to_remove)
+
+            await member.add_roles(new_role)
+
+            # 🎉 announce in the server, not DM
+            await interaction.channel.send(
+                f"🎉 {interaction.user.mention} has been promoted to **{unlocked_stage['name']}** "
+                f"for working {total_jobs} total jobs!"
+            )
+
 
 
 
@@ -253,31 +266,31 @@ special_jobs = [
     },
     {
         "name": "glitch",
-        "desc": "🌀 The job glitched out! Reality bent in your favor.",
+        "desc": "zzzzAAAAAAZ_>>>////\\| Wow! the job is, bugged? who knows here is some cash for finding this!",
         "color": discord.Color.magenta(),
         "payout": (200_000, 300_000)
     },
     {
         "name": "dev",
-        "desc": "👨‍💻 You stumbled into dev commands... jackpot.",
+        "desc": "👨‍💻 how did you find this? this should exist, who are you?",
         "color": discord.Color.dark_red(),
         "payout": (1_500_000, 1_500_000)
     },
     {
         "name": "toilet",
-        "desc": "🚽 You cleaned the toilets but… disaster. Covered in 💩",
+        "desc": "🚽 You cleaned the toilets but got covered in poo, womp womp",
         "color": discord.Color.dark_gray(),
         "payout": (0.25, 0.25)
     },
     {
         "name": "meme69",
-        "desc": "😂 Nice job. Somebody tipped you $69. Nice.",
+        "desc": "😂 Nice. Somebody tipped you $69.",
         "color": discord.Color.green(),
         "payout": (69, 69)
     },
     {
         "name": "meme420",
-        "desc": "🔥 Blazing! You got tipped $420 for style.",
+        "desc": "🔥 pass da kush You got tipped $420 for style.",
         "color": discord.Color.dark_green(),
         "payout": (420, 420)
     },
@@ -289,13 +302,13 @@ special_jobs = [
     },
     {
         "name": "lottery",
-        "desc": "🎟️ You hit the underground lotto!",
+        "desc": "🎟️ holy shit YOU WON THE POWERBALL!",
         "color": discord.Color.teal(),
         "payout": (150_000, 500_000)
     },
     {
         "name": "sponsorship",
-        "desc": "📢 Sponsored by Shady Brand™.",
+        "desc": "📢 Sponsored by a Shady Brand™.",
         "color": discord.Color.orange(),
         "payout": (100_000, 250_000)
     },
@@ -389,20 +402,11 @@ def roll_tip():
 
 # --- job table with moderate inflation ---
 # Payout ranges in dollars
-# common:    50–200
-# uncommon:  150–500
-# rare:      400–2,000
-# epic:      1,500–6,000
-# legendary: 10,000–50,000
-# secret:    100,000–1,000,000
-# dev:       flat 1,000,000 (special)
-# --- job table with moderate inflation ---
-# Payout ranges in dollars
 # common:    10–80
 # uncommon:  150–500
 # rare:      400–2,000
 # epic:      1,500–6,000
-# legendary: 10,000–50,000
+# legendary: 15,000–75,000
 # secret:    100,000–1,000,000
 # specials handled separately
 
@@ -482,7 +486,7 @@ jobs = {
     },
     "legendary": {
         "chance": 0.02,
-        "payout": (10000, 50000),
+        "payout": (15000, 75000),
         "list": [
             # ~15 legendaries
             "helped launch a rocket","jorked off a dwarf", "discovered hidden treasure","performed in a world-famous concert",
@@ -507,21 +511,63 @@ jobs = {
 # order matters for cumulative roll
 RARITY_ORDER = ["common","uncommon","rare","epic","legendary","secret"]
 
-def pick_job():
-    """Simple % roll version (we’ll upgrade to your special multi-roll later)."""
-    roll = random.random()  # 0.0–1.0
+def get_career_tier(user_id: int):
+    """Return the career tier dict for this user based on total jobs worked."""
+    # job_counts is your global dict: user_id -> counts dict
+    # compute total jobs as sum of the counts
+    counts = job_counts.get(user_id, {"common":0,"uncommon":0,"rare":0,"epic":0,"legendary":0,"secret":0,"special":0})
+    total_jobs = sum(counts.values())
+
+    current_tier = CAREER_PATH[0]  # default to Temp Worker
+    for tier in CAREER_PATH:
+        if total_jobs >= tier["required"]:
+            current_tier = tier
+        else:
+            break
+    return current_tier
+
+
+def pick_job(user_id: int):
+    """
+    Pick a job based on the user's career tier distribution.
+    If test_mode / BYPASS_CAREER is True, use the test distribution to allow high-tier pulls.
+    Returns: (rarity, job_description, payout, career_name)
+    """
+    # decide allowed distribution
+    if test_mode or BYPASS_CAREER:
+        allowed = _TEST_ALLOWED.copy()
+        career_name = "TEST MODE"
+    else:
+        tier = get_career_tier(user_id)
+        allowed = tier.get("allowed", {})
+        career_name = tier.get("name", "Temp Worker")
+
+    # Sanity: ensure allowed sums to >0. If not, fallback to common-only.
+    total_pct = sum(allowed.values())
+    if total_pct <= 0:
+        allowed = {"common": 100}
+        total_pct = 100
+
+    # Roll a 0-100 number and pick rarity by cumulative percentages
+    roll = random.uniform(0, total_pct)
     cum = 0.0
-    for r in RARITY_ORDER:
-        data = jobs[r]
-        cum += data["chance"]
+    chosen_rarity = "common"
+    for r, pct in allowed.items():
+        cum += pct
         if roll <= cum:
-            job = random.choice(data["list"])
-            payout = round(random.uniform(*data["payout"]), 2)
-            return r, job, payout
-    # fallback: common
-    job = random.choice(jobs["common"]["list"])
-    payout = round(random.uniform(*jobs["common"]["payout"]), 2)
-    return "common", job, payout
+            chosen_rarity = r
+            break
+
+    # ensure chosen_rarity exists in your jobs dict (fallback to common)
+    if chosen_rarity not in jobs:
+        chosen_rarity = "common"
+
+    # pick job and payout from your jobs structure
+    job = random.choice(jobs[chosen_rarity]["list"])
+    payout = round(random.uniform(*jobs[chosen_rarity]["payout"]), 2)
+
+    return chosen_rarity, job, payout, career_name
+
 
 
 @bot.event
@@ -564,66 +610,11 @@ rarity_emojis = {
     "flash-sale": "🛒"
 }
 
-@bot.tree.command(name="progress", description="Check your job progress and next role unlock")
-async def progress(interaction: discord.Interaction):
-    user_id = interaction.user.id
-    counts = job_counts.get(user_id, {"common":0,"uncommon":0,"rare":0,"epic":0,"legendary":0,"secret":0,"special":0})
-    total_jobs = sum(counts.values())
-
-    # figure out the next unlock
-    next_unlock = None
-    for tier in ROLE_TIERS:
-        if tier["rarity"] == "total":
-            if total_jobs < tier["required"]:
-                next_unlock = (tier["name"], tier["required"] - total_jobs, "total jobs")
-                break
-        else:
-            if counts.get(tier["rarity"], 0) < tier["required"]:
-                next_unlock = (tier["name"], tier["required"] - counts[tier["rarity"]], f"{tier['rarity']} jobs")
-                break
-
-    # make an embed
-    embed = discord.Embed(
-        title=f"📊 Job Progress for {interaction.user.display_name}",
-        color=discord.Color.blurple()
-    )
-
-    embed.add_field(
-        name="Jobs Completed",
-        value=(
-            f"Common: {counts['common']}\n"
-            f"Uncommon: {counts['uncommon']}\n"
-            f"Rare: {counts['rare']}\n"
-            f"Epic: {counts['epic']}\n"
-            f"Legendary: {counts['legendary']}\n"
-            f"Secret: {counts['secret']}\n"
-            f"Special: {counts['special']}\n"
-            f"**Total:** {total_jobs}"
-        ),
-        inline=False
-    )
-
-    if next_unlock:
-        embed.add_field(
-            name="Next Unlock",
-            value=f"**{next_unlock[0]}** → {next_unlock[1]} more {next_unlock[2]}",
-            inline=False
-        )
-    else:
-        embed.add_field(
-            name="Next Unlock",
-            value="✅ You’ve unlocked everything currently available!",
-            inline=False
-        )
-
-    await interaction.response.send_message(embed=embed)
-
-
 test_mode = False
 
 @bot.tree.command(name="testmode", description="Toggle test mode (admin only)")
 async def testmode(interaction: discord.Interaction, toggle: str):
-    global test_mode, SPECIAL_CHANCE, TIP_BASE_CHANCE, DEV_CHANCE_DENOM
+    global test_mode, BYPASS_CAREER, SPECIAL_CHANCE, TIP_BASE_CHANCE, DEV_CHANCE_DENOM
 
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ You don’t have permission to use this.", ephemeral=True)
@@ -631,18 +622,32 @@ async def testmode(interaction: discord.Interaction, toggle: str):
 
     if toggle.lower() == "on":
         test_mode = True
-        SPECIAL_CHANCE = 0.5
-        TIP_BASE_CHANCE = 0.9
-        DEV_CHANCE_DENOM = 5
-        await interaction.response.send_message("🧪 Test mode ON — odds boosted for specials and tips.")
+        BYPASS_CAREER = True
+
+        # apply test overrides
+        SPECIAL_CHANCE = _TEST_SPECIAL_CHANCE
+        TIP_BASE_CHANCE = _TEST_TIP_BASE_CHANCE
+        DEV_CHANCE_DENOM = _TEST_DEV_CHANCE_DENOM
+
+        await interaction.response.send_message(
+            "🧪 Test mode **ON** — career restrictions bypassed, tips forced, and special/dev odds boosted."
+        )
+
     elif toggle.lower() == "off":
         test_mode = False
+        BYPASS_CAREER = False
+
+        # restore production defaults
         SPECIAL_CHANCE = 0.02
         TIP_BASE_CHANCE = 0.25
         DEV_CHANCE_DENOM = 7777
-        await interaction.response.send_message("🧪 Test mode OFF — odds restored to normal.")
+
+        await interaction.response.send_message(
+            "🧪 Test mode **OFF** — odds restored to normal and career gating re-enabled."
+        )
+
     else:
-        await interaction.response.send_message("Usage: `/testmode on` or `/testmode off`")
+        await interaction.response.send_message("Usage: `/testmode on` or `/testmode off`", ephemeral=True)
 
 
 # Track cooldowns: 1 use per 15 seconds, per user
@@ -953,6 +958,81 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
 
         await append_bet(first=False)
 
+# 1. Resume command
+@bot.tree.command(name="resume", description="Check your career progress and next promotion")
+async def resume(interaction: discord.Interaction):
+    user_id = interaction.user.id
+    counts = job_counts.get(user_id, {"common":0,"uncommon":0,"rare":0,"epic":0,"legendary":0,"secret":0,"special":0})
+    total_jobs = sum(counts.values())
+
+    # highest paying job tracking (assumes you store it in balances or another dict)
+    highest = highest_jobs.get(user_id, {"amount": 0.0, "desc": "None yet"})
+
+    # find current and next stage
+    current_stage = None
+    next_stage = None
+    for stage in CAREER_PATH:
+        if total_jobs >= stage["required"]:
+            current_stage = stage
+        elif total_jobs < stage["required"]:
+            next_stage = stage
+            break
+
+    embed = discord.Embed(
+        title=f"📄 Resume for {interaction.user.display_name}",
+        color=discord.Color.gold()
+    )
+
+    embed.add_field(
+        name="Highest Paying Job",
+        value=f"{highest['desc']} — **${highest['amount']:,.2f}**",
+        inline=False
+    )
+
+    if next_stage:
+        embed.add_field(
+            name="Next Promotion",
+            value=f"**{next_stage['name']}** → {next_stage['required'] - total_jobs} more jobs",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Next Promotion",
+            value="✅ You’ve reached the peak of your career ladder!",
+            inline=False
+        )
+
+    await interaction.response.send_message(embed=embed)
+
+
+# 2. Jobstats command
+@bot.tree.command(name="jobstats", description="Check detailed job stats")
+async def jobstats(interaction: discord.Interaction):
+    user_id = interaction.user.id
+    counts = job_counts.get(user_id, {"common":0,"uncommon":0,"rare":0,"epic":0,"legendary":0,"secret":0,"special":0})
+    total_jobs = sum(counts.values())
+
+    embed = discord.Embed(
+        title=f"📊 Job Stats for {interaction.user.display_name}",
+        color=discord.Color.blurple()
+    )
+
+    embed.add_field(
+        name="Jobs Completed",
+        value=(f"Common: {counts['common']}\n"
+               f"Uncommon: {counts['uncommon']}\n"
+               f"Rare: {counts['rare']}\n"
+               f"Epic: {counts['epic']}\n"
+               f"Legendary: {counts['legendary']}\n"
+               f"Secret: {counts['secret']}\n"
+               f"Special: {counts['special']}\n"
+               f"**Total:** {total_jobs}"),
+        inline=False
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
 
 
 
@@ -1253,35 +1333,31 @@ async def work_cmd(interaction: discord.Interaction):
 
     user_id = interaction.user.id
 
-    # ---- 0) chance to misfire (10%) ----
-    if random.random() < 0.1:  # 10% chance to fail
-        fail_messages = [
-            "ATS didn’t like your resume, please fix it and try again.",
-            "You threw up in your interview, GGs.",
-            "The employer saw your social media history, you’re cooked buddy.",
-            "Your references ghosted HR, better luck next time.",
-            "The company went on a hiring freeze just as you applied. Ouch."
-        ]
-        fail_text = random.choice(fail_messages)
+    # ---- 1) small chance to waste a turn ----
+    if random.random() < 0.05:  # 5% chance
+        fail_text = random.choice([
+            "❌ ATS didn’t like your resume, try again.",
+            "❌ You threw up in your interview, GGs.",
+            "❌ The employer saw your social media history, you’re cooked buddy.",
+            "❌ HR ghosted you, better luck next time.",
+            "❌ You overslept and missed the shift entirely."
+        ])
         embed = discord.Embed(
             title=f"{interaction.user.name} tried to work...",
-            description=f"❌ {fail_text}",
+            description=fail_text,
             color=discord.Color.red()
         )
         await interaction.response.send_message(embed=embed)
         return
 
-    # ---- 1) try special-event jobs first ----
+    # ---- 2) special-event jobs (always available) ----
     special = pick_special_job()
     if special is not None:
         base_payout = special["payout_value"]
 
         # try for a tip on special jobs too
         tip = roll_tip()
-        if tip:
-            final_payout = round(base_payout * tip["mult"], 2)
-        else:
-            final_payout = base_payout
+        final_payout = round(base_payout * tip["mult"], 2) if tip else base_payout
 
         balances[user_id] = balances.get(user_id, 0.0) + final_payout
         save_balances()
@@ -1299,10 +1375,7 @@ async def work_cmd(interaction: discord.Interaction):
             desc_lines.append(
                 f"{tip['emoji']} tip! {tip['flavor']} ×**{tip['mult']}** → **${final_payout:,.2f}** total."
             )
-        desc_lines.extend([
-            "",
-            f"💰 current balance: **${new_balance:,.2f}**"
-        ])
+        desc_lines.append(f"💰 current balance: **${new_balance:,.2f}**")
 
         embed = discord.Embed(
             title=f"{interaction.user.name} worked a special job!",
@@ -1316,27 +1389,20 @@ async def work_cmd(interaction: discord.Interaction):
         announce_channel = bot.get_channel(ANNOUNCE_CHANNEL_ID)
         if announce_channel:
             emoji = rarity_emojis.get(special["name"], "✨")
+            msg = f"{emoji} {interaction.user.mention} hit a **Special Job: {special['name'].upper()}** and earned ${final_payout:,.2f}"
             if tip:
-                await announce_channel.send(
-                    f"{emoji} {interaction.user.mention} hit a **Special Job: {special['name'].upper()}** "
-                    f"and earned ${final_payout:,.2f} (tipped ×{tip['mult']})!"
-                )
+                msg += f" (tipped ×{tip['mult']})!"
             else:
-                await announce_channel.send(
-                    f"{emoji} {interaction.user.mention} hit a **Special Job: {special['name'].upper()}** "
-                    f"and earned ${final_payout:,.2f}!"
-                )
+                msg += "!"
+            await announce_channel.send(msg)
         return
 
-    # ---- 2) normal rarity roll ----
-    rarity, job, base_payout = pick_job()
+    # ---- 3) normal job roll based on career tier ----
+    rarity, job, base_payout, career_name = pick_job(user_id)
 
     # try for a tip
     tip = roll_tip()
-    if tip:
-        final_payout = round(base_payout * tip["mult"], 2)
-    else:
-        final_payout = base_payout
+    final_payout = round(base_payout * tip["mult"], 2) if tip else base_payout
 
     balances[user_id] = balances.get(user_id, 0.0) + final_payout
     save_balances()
@@ -1357,17 +1423,14 @@ async def work_cmd(interaction: discord.Interaction):
         desc_lines.append(
             f"{tip['emoji']} tip! {tip['flavor']} ×**{tip['mult']}** → **${final_payout:,.2f}** total.{extra}"
         )
-    desc_lines.extend([
-        "",
-        f"💰 current balance: **${new_balance:,.2f}**"
-    ])
+    desc_lines.append(f"💰 current balance: **${new_balance:,.2f}**")
 
     embed = discord.Embed(
         title=f"{interaction.user.name} worked!",
         description="\n".join(desc_lines),
         color=rarity_colors[rarity]
     )
-    embed.set_footer(text=f"job type: {rarity.upper()}")
+    embed.set_footer(text=f"career tier: {career_name}")
     await interaction.response.send_message(embed=embed)
 
     # announcements only for legendary/secret
@@ -1375,16 +1438,12 @@ async def work_cmd(interaction: discord.Interaction):
         announce_channel = bot.get_channel(ANNOUNCE_CHANNEL_ID)
         if announce_channel:
             emoji = rarity_emojis.get(rarity, "✨")
+            msg = f"{emoji} {interaction.user.mention} just worked a **{rarity.upper()} job** and made ${final_payout:,.2f}"
             if tip:
-                await announce_channel.send(
-                    f"{emoji} {interaction.user.mention} just worked a **{rarity.upper()} job** "
-                    f"and made ${final_payout:,.2f} (tipped ×{tip['mult']})!"
-                )
+                msg += f" (tipped ×{tip['mult']})!"
             else:
-                await announce_channel.send(
-                    f"{emoji} {interaction.user.mention} just worked a **{rarity.upper()} job** "
-                    f"and made ${final_payout:,.2f}!"
-                )
+                msg += "!"
+            await announce_channel.send(msg)
 
 
 
