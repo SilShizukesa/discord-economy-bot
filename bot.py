@@ -236,20 +236,21 @@ _TEST_ALLOWED = {
 # ---------- Career Path ----------
 CAREER_PATH = [
     {"name": "Temp Worker",         "required": 0,     "role_id": 1417346927246315551, "allowed": {"common": 100, "uncommon": 0,  "rare": 0,  "epic": 0,  "legendary": 0,  "secret": 0}},
-    {"name": "Intern",              "required": 100,   "role_id": 1417347155617644545, "allowed": {"common": 80,  "uncommon": 15, "rare": 5,  "epic": 0,  "legendary": 0,  "secret": 0}},
-    {"name": "Low-Level Associate", "required": 250,   "role_id": 1417347223875751976, "allowed": {"common": 70,  "uncommon": 20, "rare": 8,  "epic": 2,  "legendary": 0,  "secret": 0}},
-    {"name": "Mid-Level Associate", "required": 500,   "role_id": 1417347300807938150, "allowed": {"common": 60,  "uncommon": 25, "rare":10,  "epic": 5,  "legendary": 0,  "secret": 0}},
-    {"name": "Senior Associate",    "required": 1000,  "role_id": 1417347359196577913, "allowed": {"common": 50,  "uncommon": 30, "rare":12,  "epic": 7,  "legendary": 1,  "secret": 0}},
-    {"name": "Lower Management",    "required": 1500,  "role_id": 1417347412845924372, "allowed": {"common": 40,  "uncommon": 35, "rare":15,  "epic": 8,  "legendary": 2,  "secret": 0}},
-    {"name": "Upper Management",    "required": 2500,  "role_id": 1417347538968903855, "allowed": {"common": 35,  "uncommon": 35, "rare":18,  "epic":10,  "legendary": 2,  "secret": 0}},
-    {"name": "HR Administrator",    "required": 3500,  "role_id": 1417347593700380703, "allowed": {"common": 30,  "uncommon": 35, "rare":20,  "epic":12,  "legendary": 3,  "secret": 0}},
-    {"name": "Senior Director",     "required": 5000,  "role_id": 1417668804606955581, "allowed": {"common": 25,  "uncommon": 35, "rare":22,  "epic":13,  "legendary": 5,  "secret": 0}},
-    {"name": "Vice President",      "required": 7500,  "role_id": 1417668874026876948, "allowed": {"common": 20,  "uncommon": 35, "rare":25,  "epic":15,  "legendary": 5,  "secret": 0}},
-    {"name": "President",           "required": 15000, "role_id": 1417668935569899630, "allowed": {"common": 15,  "uncommon": 30, "rare":25,  "epic":20,  "legendary": 8,  "secret": 2}},
-    {"name": "Board of Affairs",    "required": 20000, "role_id": 1417669003890921583, "allowed": {"common": 10,  "uncommon": 25, "rare":30,  "epic":20,  "legendary":10,  "secret": 5}},
-    {"name": "CEO",                 "required": 30000, "role_id": 1417669100976734218, "allowed": {"common": 5,   "uncommon": 20, "rare":30,  "epic":25,  "legendary":15,  "secret": 5}},
-    {"name": "Employed",            "required": 50000, "role_id": 1417348260926062712, "allowed": {"common": 0,   "uncommon": 15, "rare":25,  "epic":30,  "legendary":20,  "secret":10}},
+    {"name": "Intern",              "required": 100,   "role_id": 1417347155617644545, "allowed": {"common": 60,  "uncommon": 20, "rare": 10, "epic": 8,  "legendary": 1,  "secret": 1}},
+    {"name": "Low-Level Associate", "required": 250,   "role_id": 1417347223875751976, "allowed": {"common": 55,  "uncommon": 22, "rare": 12, "epic": 8,  "legendary": 2,  "secret": 1}},
+    {"name": "Mid-Level Associate", "required": 500,   "role_id": 1417347300807938150, "allowed": {"common": 50,  "uncommon": 25, "rare": 13, "epic": 9,  "legendary": 2,  "secret": 1}},
+    {"name": "Senior Associate",    "required": 1000,  "role_id": 1417347359196577913, "allowed": {"common": 45,  "uncommon": 25, "rare": 15, "epic": 10, "legendary": 3,  "secret": 2}},
+    {"name": "Lower Management",    "required": 1500,  "role_id": 1417347412845924372, "allowed": {"common": 40,  "uncommon": 28, "rare": 16, "epic": 10, "legendary": 4,  "secret": 2}},
+    {"name": "Upper Management",    "required": 2500,  "role_id": 1417347538968903855, "allowed": {"common": 35,  "uncommon": 30, "rare": 18, "epic": 12, "legendary": 4,  "secret": 2}},
+    {"name": "HR Administrator",    "required": 3500,  "role_id": 1417347593700380703, "allowed": {"common": 30,  "uncommon": 30, "rare": 20, "epic": 13, "legendary": 5,  "secret": 2}},
+    {"name": "Senior Director",     "required": 5000,  "role_id": 1417668804606955581, "allowed": {"common": 25,  "uncommon": 30, "rare": 22, "epic": 15, "legendary": 6,  "secret": 2}},
+    {"name": "Vice President",      "required": 7500,  "role_id": 1417668874026876948, "allowed": {"common": 20,  "uncommon": 30, "rare": 25, "epic": 15, "legendary": 7,  "secret": 3}},
+    {"name": "President",           "required": 15000, "role_id": 1417668935569899630, "allowed": {"common": 15,  "uncommon": 28, "rare": 25, "epic": 17, "legendary": 10, "secret": 5}},
+    {"name": "Board of Affairs",    "required": 20000, "role_id": 1417669003890921583, "allowed": {"common": 12,  "uncommon": 25, "rare": 27, "epic": 18, "legendary": 12, "secret": 6}},
+    {"name": "CEO",                 "required": 30000, "role_id": 1417669100976734218, "allowed": {"common": 10,  "uncommon": 20, "rare": 28, "epic": 20, "legendary": 15, "secret": 7}},
+    {"name": "Employed",            "required": 50000, "role_id": 1417348260926062712, "allowed": {"common": 5,   "uncommon": 15, "rare": 30, "epic": 25, "legendary": 18, "secret": 7}},
 ]
+
 
 async def get_career_tier(user_id: int) -> dict:
     total_jobs = await get_total_jobs(user_id)
