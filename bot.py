@@ -32,7 +32,6 @@ PATCH_NOTES_CHANNEL_ID = 1417353769037070366  # unused here but kept for parity
 # Database (Postgres via asyncpg)
 # --------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
-pool: asyncpg.Pool | None = None
 
 async def init_db():
     async with pool.acquire() as conn:
@@ -475,18 +474,23 @@ async def pick_job(user_id: int):
     return chosen_rarity, job, payout, career_name
 
 # ---------- Discord events ----------
+import ssl
+
+pool = None  # define at top of file, but don’t await here
+
 @bot.event
 async def on_ready():
     global pool
     if pool is None:
-        # Connect to DB and init tables
-        pool = await asyncpg.create_pool(DATABASE_URL)
+        ssl_ctx = ssl.create_default_context()
+        pool = await asyncpg.create_pool(DATABASE_URL, ssl=ssl_ctx)
         await init_db()
 
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and slash commands synced!")
     activity = discord.CustomActivity(name=f"Getting a J*B at {BOT_VERSION}")
     await bot.change_presence(status=discord.Status.online, activity=activity)
+
 
 # ---------- Commands ----------
 @bot.tree.command(name="balance", description="Check how much money you have")
