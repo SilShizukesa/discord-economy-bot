@@ -13,7 +13,7 @@ from discord import app_commands
 import subprocess
 
 # Version of the bot
-BOT_VERSION = "V0.0.05"
+BOT_VERSION = "V0.0.06"
 
 
 
@@ -68,6 +68,19 @@ CAREER_PATH = [
     {"name": "CEO", "required": 30000, "role_id": 1417669100976734218, "allowed": {"common": 5, "uncommon": 20, "rare": 30, "epic": 25, "legendary": 15, "secret": 5}},
     {"name": "Employed", "required": 50000, "role_id": 1417348260926062712, "allowed": {"common": 0, "uncommon": 15, "rare": 25, "epic": 30, "legendary": 20, "secret": 10}},
 ]
+
+
+def save_highest_jobs():
+    with open("highest_jobs.json", "w") as f:
+        json.dump(highest_jobs, f)
+
+def load_highest_jobs():
+    global highest_jobs
+    try:
+        with open("highest_jobs.json", "r") as f:
+            highest_jobs = json.load(f)
+    except FileNotFoundError:
+        highest_jobs = {}
 
 
 BUFFS_FILE = "buffs.json"
@@ -958,51 +971,130 @@ async def roulette(interaction: discord.Interaction, bet: str, amount: float):
 
         await append_bet(first=False)
 
-# 1. Resume command
-@bot.tree.command(name="resume", description="Check your career progress and next promotion")
-async def resume(interaction: discord.Interaction):
+
+@bot.tree.command(name="work", description="Do an odd job to earn some money")
+async def work_cmd(interaction: discord.Interaction):
+    # check if this command is being run in the work channel
+    if interaction.channel_id != WORK_CHANNEL_ID:
+        await interaction.response.send_message(
+            f"❌ You can only use this command in <#{WORK_CHANNEL_ID}>.",
+            ephemeral=True
+        )
+        return
+
     user_id = interaction.user.id
-    counts = job_counts.get(user_id, {"common":0,"uncommon":0,"rare":0,"epic":0,"legendary":0,"secret":0,"special":0})
-    total_jobs = sum(counts.values())
 
-    # highest paying job tracking (assumes you store it in balances or another dict)
-    highest = highest_jobs.get(user_id, {"amount": 0.0, "desc": "None yet"})
+    # ---- 1) small chance to waste a turn ----
+    if random.random() < 0.05:  # 5% chance
+        fail_text = random.choice([
+            "❌ ATS didn’t like your resume, try again.",
+            "❌ You threw up in your interview, GGs.",
+            "❌ The employer saw your social media history, you’re cooked buddy.",
+            "❌ HR ghosted you, better luck next time.",
+            "❌ You overslept and missed the shift entirely."
+        ])
+        embed = discord.Embed(
+            title=f"{interaction.user.name} tried to work...",
+            description=fail_text,
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed)
+        return
 
-    # find current and next stage
-    current_stage = None
-    next_stage = None
-    for stage in CAREER_PATH:
-        if total_jobs >= stage["required"]:
-            current_stage = stage
-        elif total_jobs < stage["required"]:
-            next_stage = stage
-            break
+    # ---- 2) special-event jobs (always available) ----
+    special = pick_special_job()
+    if special is not None:
+        base_payout = special["payout_value"]
+
+        # try for a tip on special jobs too
+        tip = roll_tip()
+        final_payout = round(base_payout * tip["mult"], 2) if tip else base_payout
+
+        balances[user_id] = balances.get(user_id, 0.0) + final_payout
+        save_balances()
+        new_balance = balances[user_id]
+
+        # ✅ update job progress
+        await update_job_progress(interaction, "special")
+
+        desc_lines = [
+            f"{special['desc']}",
+            "",
+            f"you earned **${base_payout:,.2f}**."
+        ]
+        if tip:
+            desc_lines.append(
+                f"{tip['emoji']} tip! {tip['flavor']} ×**{tip['mult']}** → **${final_payout:,.2f}** total."
+            )
+        desc_lines.append(f"💰 current balance: **${new_balance:,.2f}**")
+
+        embed = discord.Embed(
+            title=f"{interaction.user.name} worked a special job!",
+            description="\n".join(desc_lines),
+            color=special["color"]
+        )
+        embed.set_footer(text=f"special job: {special['name'].upper()}")
+        await interaction.response.send_message(embed=embed)
+
+        # announce in the announcement channel
+        announce_channel = bot.get_channel(ANNOUNCE_CHANNEL_ID)
+        if announce_channel:
+            emoji = rarity_emojis.get(special["name"], "✨")
+            msg = f"{emoji} {interaction.user.mention} hit a **Special Job: {special['name'].upper()}** and earned ${final_payout:,.2f}"
+            if tip:
+                msg += f" (tipped ×{tip['mult']})!"
+            else:
+                msg += "!"
+            await announce_channel.send(msg)
+        return
+
+    # ---- 3) normal job roll based on career tier ----
+    rarity, job, base_payout, career_name = pick_job(user_id)
+
+    # try for a tip
+    tip = roll_tip()
+    final_payout = round(base_payout * tip["mult"], 2) if tip else base_payout
+
+    balances[user_id] = balances.get(user_id, 0.0) + final_payout
+    save_balances()
+    new_balance = balances[user_id]
+
+    # ✅ update job progress
+    await update_job_progress(interaction, rarity)
+
+    desc_lines = [
+        f"{flavor_texts[rarity]}",
+        "",
+        f"you {job} and earned **${base_payout:,.2f}**."
+    ]
+    if tip:
+        extra = ""
+        if rarity == "common" and tip["mult"] >= 3:
+            extra = " (from crumbs to caviar!)"
+        desc_lines.append(
+            f"{tip['emoji']} tip! {tip['flavor']} ×**{tip['mult']}** → **${final_payout:,.2f}** total.{extra}"
+        )
+    desc_lines.append(f"💰 current balance: **${new_balance:,.2f}**")
 
     embed = discord.Embed(
-        title=f"📄 Resume for {interaction.user.display_name}",
-        color=discord.Color.gold()
+        title=f"{interaction.user.name} worked!",
+        description="\n".join(desc_lines),
+        color=rarity_colors[rarity]
     )
-
-    embed.add_field(
-        name="Highest Paying Job",
-        value=f"{highest['desc']} — **${highest['amount']:,.2f}**",
-        inline=False
-    )
-
-    if next_stage:
-        embed.add_field(
-            name="Next Promotion",
-            value=f"**{next_stage['name']}** → {next_stage['required'] - total_jobs} more jobs",
-            inline=False
-        )
-    else:
-        embed.add_field(
-            name="Next Promotion",
-            value="✅ You’ve reached the peak of your career ladder!",
-            inline=False
-        )
-
+    embed.set_footer(text=f"career tier: {career_name}")
     await interaction.response.send_message(embed=embed)
+
+    # announcements only for legendary/secret
+    if rarity in ["legendary", "secret"]:
+        announce_channel = bot.get_channel(ANNOUNCE_CHANNEL_ID)
+        if announce_channel:
+            emoji = rarity_emojis.get(rarity, "✨")
+            msg = f"{emoji} {interaction.user.mention} just worked a **{rarity.upper()} job** and made ${final_payout:,.2f}"
+            if tip:
+                msg += f" (tipped ×{tip['mult']})!"
+            else:
+                msg += "!"
+            await announce_channel.send(msg)
 
 
 # 2. Jobstats command
@@ -1319,8 +1411,6 @@ async def pay_cmd(interaction: discord.Interaction, member: discord.Member, amou
     await interaction.response.send_message(embed=embed)
 
 
-
-
 @bot.tree.command(name="work", description="Do an odd job to earn some money")
 async def work_cmd(interaction: discord.Interaction):
     # check if this command is being run in the work channel
@@ -1332,6 +1422,7 @@ async def work_cmd(interaction: discord.Interaction):
         return
 
     user_id = interaction.user.id
+    user_key = str(user_id)
 
     # ---- 1) small chance to waste a turn ----
     if random.random() < 0.05:  # 5% chance
@@ -1365,6 +1456,16 @@ async def work_cmd(interaction: discord.Interaction):
 
         # ✅ update job progress
         await update_job_progress(interaction, "special")
+
+        # 🔥 track highest-paying job
+        record = highest_jobs.get(user_key, {"amount": 0, "job": "", "rarity": ""})
+        if final_payout > record["amount"]:
+            highest_jobs[user_key] = {
+                "amount": final_payout,
+                "job": special["name"],
+                "rarity": "special"
+            }
+            save_highest_jobs()
 
         desc_lines = [
             f"{special['desc']}",
@@ -1410,6 +1511,16 @@ async def work_cmd(interaction: discord.Interaction):
 
     # ✅ update job progress
     await update_job_progress(interaction, rarity)
+
+    # 🔥 track highest-paying job
+    record = highest_jobs.get(user_key, {"amount": 0, "job": "", "rarity": ""})
+    if final_payout > record["amount"]:
+        highest_jobs[user_key] = {
+            "amount": final_payout,
+            "job": job,
+            "rarity": rarity
+        }
+        save_highest_jobs()
 
     desc_lines = [
         f"{flavor_texts[rarity]}",
