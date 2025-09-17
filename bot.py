@@ -1284,6 +1284,57 @@ async def pay_cmd(interaction: discord.Interaction, member: discord.Member, amou
     )
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="resume", description="Check your career ladder progress and highest-paying job")
+async def resume(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+    counts = job_counts.get(interaction.user.id, {"common":0,"uncommon":0,"rare":0,"epic":0,"legendary":0,"secret":0,"special":0})
+    total_jobs = sum(counts.values())
+
+    # figure out next unlock
+    current_tier = get_career_tier(interaction.user.id)
+    next_unlock = None
+    for tier in CAREER_PATH:
+        if total_jobs < tier["required"]:
+            next_unlock = (tier["name"], tier["required"] - total_jobs)
+            break
+
+    # highest paying job
+    record = highest_jobs.get(user_id, None)
+
+    embed = discord.Embed(
+        title=f"📄 Resume for {interaction.user.display_name}",
+        color=discord.Color.green()
+    )
+
+    if record:
+        embed.add_field(
+            name="Highest Paying Job",
+            value=f"**{record['job']}** ({record['rarity'].title()}) → ${record['amount']:,.2f}",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Highest Paying Job",
+            value="No jobs recorded yet!",
+            inline=False
+        )
+
+    if next_unlock:
+        embed.add_field(
+            name="Next Career Step",
+            value=f"**{next_unlock[0]}** → {next_unlock[1]} more jobs",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Next Career Step",
+            value="✅ You’ve reached the top of the career ladder!",
+            inline=False
+        )
+
+    await interaction.response.send_message(embed=embed)
+
+
 
 @bot.tree.command(name="work", description="Do an odd job to earn some money")
 async def work_cmd(interaction: discord.Interaction):
