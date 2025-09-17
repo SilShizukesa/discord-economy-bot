@@ -1284,6 +1284,32 @@ async def pay_cmd(interaction: discord.Interaction, member: discord.Member, amou
     )
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="resetjobs", description="Reset all your job stats (admin only)")
+async def resetjobs(interaction: discord.Interaction, member: discord.Member = None):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ You don’t have permission to use this.", ephemeral=True)
+        return
+
+    target = member or interaction.user
+    user_id = target.id
+    user_key = str(user_id)
+
+    # Reset their job counts
+    if user_id in job_counts:
+        job_counts[user_id] = {"common":0,"uncommon":0,"rare":0,"epic":0,"legendary":0,"secret":0,"special":0}
+        save_balances()  # reuses your balance-saving logic since it stores job_counts too
+
+    # Reset their highest-paying job
+    if user_key in highest_jobs:
+        del highest_jobs[user_key]
+        save_highest_jobs()
+
+    await interaction.response.send_message(
+        f"🧹 All job stats for {target.mention} have been reset.",
+        ephemeral=False
+    )
+
+
 @bot.tree.command(name="resume", description="Check your career ladder progress and highest-paying job")
 async def resume(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
