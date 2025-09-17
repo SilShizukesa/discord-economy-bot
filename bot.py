@@ -19,6 +19,8 @@ BOT_VERSION = "V0.0.09"
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+pool = None  # global connection pool for Postgres
+
 
 # --------------------------------
 # Channel IDs (replace with yours)
