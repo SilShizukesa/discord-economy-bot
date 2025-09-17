@@ -1367,7 +1367,7 @@ async def resume(interaction: discord.Interaction):
     if next_unlock:
         embed.add_field(
             name="Next Career Step",
-            value=f"**{next_unlock[0]}** → {next_unlock[1]} more jobs",
+            value=f"{next_unlock[1]} more jobs → **{next_unlock[0]}**",
             inline=False
         )
     else:
