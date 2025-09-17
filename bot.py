@@ -26,6 +26,19 @@ ROULETTE_CHANNEL_ID = 1417369961172697090
 PATCH_NOTES_CHANNEL_ID = 1417353769037070366
 META_FILE = "meta.json"
 
+
+DATA_DIR = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "./data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+DB_PATH = os.path.join(DATA_DIR, "balances.db")
+
+
+
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+
+
+
 # --- test / debug globals ---
 test_mode = False            # toggled by /testmode
 BYPASS_CAREER = False        # internal; toggled together with test_mode
