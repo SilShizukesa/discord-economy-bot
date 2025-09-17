@@ -1309,6 +1309,25 @@ async def resetjobs(interaction: discord.Interaction, member: discord.Member = N
         ephemeral=False
     )
 
+@bot.tree.command(name="resetjobsall", description="Reset ALL users' job stats (admin only)")
+async def resetjobsall(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ You don’t have permission to use this.", ephemeral=True)
+        return
+
+    # Reset job counts for everyone
+    job_counts.clear()
+    save_balances()  # same function you use for balances + job_counts
+
+    # Reset highest-paying jobs for everyone
+    highest_jobs.clear()
+    save_highest_jobs()
+
+    await interaction.response.send_message(
+        "🧹 All users' job stats have been reset across the server.",
+        ephemeral=False
+    )
+
 
 @bot.tree.command(name="resume", description="Check your career ladder progress and highest-paying job")
 async def resume(interaction: discord.Interaction):
